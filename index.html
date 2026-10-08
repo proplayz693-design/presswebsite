@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MUN Press Desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Source+Serif+4:wght@400;600&display=swap">
+<style>
+:root{--bg:#0e1a2b;--card:#f4f7fb;--ink:#14202f;--muted:#5d6b7c;--accent:#2f7bff;--tag:#dfe8f7;--line:#cdd8e8;--hdr:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#e3ebf6;--card:#fff;--hdr:#14202f}}
+:root[data-theme="light"]{--bg:#e3ebf6;--card:#fff;--hdr:#14202f}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.65 "Source Serif 4",Georgia,serif}
+.wrap{max-width:620px;margin:0 auto;padding:28px 16px 60px}
+header{color:var(--hdr);margin-bottom:22px}
+h1{font:800 clamp(2rem,8vw,3rem)/1 "Bricolage Grotesque",Arial,sans-serif;margin:0 0 8px;letter-spacing:-.02em}
+header p{margin:0;opacity:.8;max-width:46ch}
+.card{background:var(--card);border-radius:10px;padding:20px;margin-bottom:16px;border:1px solid var(--line)}
+.card h2{font:800 1.45rem/1.2 "Bricolage Grotesque",Arial,sans-serif;margin:0 0 4px;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.9rem;margin:0 0 12px}
+.card p.body{margin:0 0 14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{background:var(--tag);color:var(--ink);border:0;border-radius:99px;padding:3px 11px;font:inherit;font-size:.85rem;cursor:pointer}
+.tag:hover,.tag.on{background:var(--accent);color:#fff}
+.row{display:flex;justify-content:flex-end;margin-top:14px}
+.link{background:none;border:0;color:var(--muted);font:inherit;font-size:.9rem;cursor:pointer;padding:4px 0}
+.link:hover{color:var(--accent)}
+.link.warn{color:#d23b3b;font-weight:600}
+form{display:grid;gap:12px}
+label{display:grid;gap:4px;font:600 .9rem "Bricolage Grotesque",Arial,sans-serif}
+input,textarea{width:100%;font:400 1rem "Source Serif 4",Georgia,serif;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+textarea{min-height:130px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.two{grid-template-columns:1fr}}
+button.go{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:11px 18px;font:800 1rem "Bricolage Grotesque",Arial,sans-serif;cursor:pointer;justify-self:start}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#filter,#status{color:var(--hdr);font-size:.95rem;min-height:1.6em;margin:0 0 12px}
+#filter button{margin-left:8px}
+footer{margin-top:30px;color:var(--hdr)}
+footer .link{color:var(--hdr);opacity:.75;margin-right:14px}
+footer .link:hover{opacity:1;color:var(--hdr);text-decoration:underline}
+footer form{max-width:320px;margin-top:10px}
+footer input{background:var(--card)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>MUN Press Desk</h1>
+<p>Reports, analysis and updates from the press corps.</p>
+</header>
+
+<section class="card" id="composer" aria-label="New article" hidden>
+<form id="f">
+<label for="t">Headline<input id="t" required maxlength="120" placeholder="Delegates clash over water rights"></label>
+<div class="two">
+<label for="a">Your name<input id="a" required maxlength="60" placeholder="Alex Tan"></label>
+<label for="c">Committee<input id="c" maxlength="60" placeholder="UNEP"></label>
+</div>
+<label for="b">Article<textarea id="b" required placeholder="Write your article here..."></textarea></label>
+<label for="g">Tags (comma separated)<input id="g" placeholder="breaking, climate, debate"></label>
+<button class="go" type="submit">Post article</button>
+</form>
+</section>
+
+<div id="filter" aria-live="polite"></div>
+<p id="status" role="status"></p>
+<main id="feed"></main>
+<footer id="tools"></footer>
+</div>
+
+<script type="application/json" id="data">{"pw":"555d2bc11a9bc41f6c0bafbd1d24db5c68f26893ceef0f929f5f976c7bf6efb2","posts":[{"id":1,"t":"Opening session ends with a split on emergency funding","a":"Sample Reporter","c":"UNDP","b":"Delegates spent the first session debating how emergency funds should be released. Several blocs backed faster payouts, while others asked for stricter oversight.\n\nThis is a sample post. Log in as editor and delete it, then add your own.","g":["breaking","funding"],"d":1760000000000}]}</script>
+<script>
+(function () {
+  var KEY = "mun-press-draft";
+  function $(id) { return document.getElementById(id); }
+  var feed = $("feed"), filterEl = $("filter"), statusEl = $("status"),
+      toolsEl = $("tools"), composer = $("composer"), form = $("f"), dataEl = $("data");
+  var fields = { t: $("t"), a: $("a"), c: $("c"), b: $("b"), g: $("g") };
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function valid(p) {
+    return p && typeof p.t === "string" && typeof p.a === "string" &&
+      typeof p.b === "string" && Array.isArray(p.g) && typeof p.d === "number";
+  }
+  function sha(s) {
+    if (!(window.crypto && crypto.subtle)) return Promise.reject(new Error("nocrypto"));
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)).then(function (buf) {
+      return Array.from(new Uint8Array(buf)).map(function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+    });
+  }
+
+  var baseText = dataEl.textContent, data = {};
+  try { data = JSON.parse(baseText) || {}; } catch (e) {}
+  var pwHash = typeof data.pw === "string" ? data.pw : "";
+  var posts = Array.isArray(data.posts) ? data.posts.filter(valid) : [];
+
+  // Unexported edits live in this browser only, and only apply to the page they were made on.
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw) {
+      var dr = JSON.parse(raw);
+      if (dr && dr.base === baseText && Array.isArray(dr.posts) && dr.posts.every(valid)) {
+        posts = dr.posts;
+        if (typeof dr.pw === "string") pwHash = dr.pw;
+      }
+    }
+  } catch (e) {}
+
+  var editor = false, dirty = false, mode = "idle", toolMsg = "";
+  var API = "/.netlify/functions/posts", authHash = "", lastSeen = "";
+  var active = null, pending = null;
+
+  function save() {
+    dirty = true;
+    try { localStorage.setItem(KEY, JSON.stringify({ base: baseText, posts: posts, pw: pwHash })); } catch (e) {}
+    statusEl.textContent = "Publishing...";
+    push();
+  }
+
+  function push() {
+    var body = JSON.stringify({ auth: authHash, pw: pwHash, posts: posts });
+    fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: body })
+      .then(function (r) {
+        if (r.ok) { authHash = pwHash; lastSeen = JSON.stringify({ posts: posts, pw: pwHash }); statusEl.textContent = "Published. Everyone can see it now."; }
+        else if (r.status === 401) statusEl.textContent = "Publish rejected: password mismatch. Saved in this browser only.";
+        else statusEl.textContent = "Could not publish (error " + r.status + "). Saved in this browser only.";
+      })
+      .catch(function () { statusEl.textContent = "Could not reach the server. Saved in this browser only."; });
+  }
+
+  function load() {
+    fetch(API, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !Array.isArray(d.posts) || !d.posts.every(valid)) return;
+        var snap = JSON.stringify({ posts: d.posts, pw: d.pw || pwHash });
+        if (snap === lastSeen) return;
+        lastSeen = snap;
+        posts = d.posts;
+        if (typeof d.pw === "string" && d.pw) pwHash = d.pw;
+        render();
+      }).catch(function () {});
+  }
+
+  function render() {
+    composer.hidden = !editor;
+    if (active) {
+      filterEl.innerHTML = "Showing #" + esc(active) + ' <button type="button" class="tag on" id="clr">Clear filter</button>';
+      $("clr").onclick = function () { active = null; render(); };
+    } else { filterEl.innerHTML = ""; }
+
+    var list = posts.filter(function (p) { return !active || p.g.indexOf(active) > -1; });
+    var h = "";
+    if (!list.length) {
+      h = '<div class="card"><p class="body">' + (active ? "No articles with this tag." :
+        (editor ? "No articles yet. Write the first one above." : "No articles yet. Check back soon.")) + "</p></div>";
+    }
+    list.forEach(function (p) {
+      var when = new Date(p.d).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+      var confirming = pending === p.id;
+      h += '<article class="card"><h2>' + esc(p.t) + "</h2>" +
+        '<p class="meta">By ' + esc(p.a) + (p.c ? " | " + esc(p.c) : "") + " | " + esc(when) + "</p>" +
+        '<p class="body">' + esc(p.b) + "</p><div class=\"tags\">" +
+        p.g.map(function (x) { return '<button type="button" class="tag" data-tag="' + esc(x) + '">#' + esc(x) + "</button>"; }).join("") +
+        "</div>" +
+        (editor ? '<div class="row"><button type="button" class="link' + (confirming ? " warn" : "") +
+          '" data-del="' + p.id + '">' + (confirming ? "Click again to delete" : "Delete") + "</button></div>" : "") +
+        "</article>";
+    });
+    feed.innerHTML = h;
+    renderTools();
+  }
+
+  function renderTools() {
+    var h = "";
+    if (!editor) {
+      h = '<button type="button" class="link" data-act="login">Editor login</button>';
+      if (mode === "login") {
+        h += '<form id="lf"><label for="pw">Password<input id="pw" type="password" autocomplete="current-password" required></label>' +
+          '<button class="go" type="submit">Unlock</button></form>';
+      }
+    } else {
+      h = '<button type="button" class="link" data-act="export">Download updated page</button>' +
+        '<button type="button" class="link" data-act="change">Change password</button>' +
+        '<button type="button" class="link" data-act="lock">Lock editor</button>';
+      if (mode === "change") {
+        h += '<form id="cf"><label for="np">New password<input id="np" type="password" autocomplete="new-password" required minlength="4"></label>' +
+          '<button class="go" type="submit">Save password</button></form>';
+      }
+    }
+    if (toolMsg) h += '<p role="alert">' + esc(toolMsg) + "</p>";
+    toolsEl.innerHTML = h;
+    var lf = $("lf"), cf = $("cf");
+    if (lf) { $("pw").focus(); lf.onsubmit = onLogin; }
+    if (cf) { $("np").focus(); cf.onsubmit = onChange; }
+  }
+
+  function onLogin(e) {
+    e.preventDefault();
+    sha($("pw").value).then(function (hash) {
+      if (hash === pwHash) { editor = true; authHash = hash; mode = "idle"; toolMsg = ""; statusEl.textContent = dirty ? statusEl.textContent : ""; }
+      else { toolMsg = "Wrong password."; }
+      render();
+    }).catch(function () {
+      toolMsg = "Login needs a secure page (https) or the file opened locally.";
+      render();
+    });
+  }
+
+  function onChange(e) {
+    e.preventDefault();
+    sha($("np").value).then(function (hash) {
+      pwHash = hash; mode = "idle"; toolMsg = "Password changed."; save(); render();
+    }).catch(function () { toolMsg = "Could not change password here."; render(); });
+  }
+
+  function exportPage() {
+    var clone = document.documentElement.cloneNode(true);
+    clone.querySelector("#data").textContent = JSON.stringify({ pw: pwHash, posts: posts }).replace(/</g, "\\u003c");
+    clone.querySelector("#feed").innerHTML = "";
+    clone.querySelector("#filter").innerHTML = "";
+    clone.querySelector("#status").textContent = "";
+    clone.querySelector("#tools").innerHTML = "";
+    clone.querySelector("#composer").setAttribute("hidden", "");
+    var html = "<!DOCTYPE html>\n" + clone.outerHTML;
+    var url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = "index.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    toolMsg = "Downloaded index.html. Upload it to replace the old version.";
+    render();
+  }
+
+  toolsEl.addEventListener("click", function (e) {
+    var el = e.target.closest("button"); var act = el && el.getAttribute("data-act");
+    if (!act) return;
+    toolMsg = "";
+    if (act === "login") mode = mode === "login" ? "idle" : "login";
+    else if (act === "change") mode = mode === "change" ? "idle" : "change";
+    else if (act === "lock") { editor = false; mode = "idle"; pending = null; }
+    else if (act === "export") { exportPage(); return; }
+    render();
+  });
+
+  feed.addEventListener("click", function (e) {
+    var el = e.target.closest("button");
+    var tag = el && el.getAttribute("data-tag"), del = el && el.getAttribute("data-del");
+    if (tag) { active = tag; pending = null; render(); window.scrollTo(0, 0); }
+    else if (del && editor) {
+      var id = Number(del);
+      if (pending === id) { posts = posts.filter(function (p) { return p.id !== id; }); pending = null; save(); }
+      else { pending = id; }
+      render();
+    } else if (pending !== null) { pending = null; render(); }
+  });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!editor) return;
+    var title = fields.t.value.trim(), author = fields.a.value.trim(), body = fields.b.value.trim();
+    if (!title || !author || !body) return;
+    var tags = [];
+    fields.g.value.split(",").forEach(function (x) {
+      x = x.trim().toLowerCase().replace(/^#+/, "");
+      if (x && tags.indexOf(x) === -1) tags.push(x);
+    });
+    posts.unshift({ id: new Date().getTime(), t: title, a: author, c: fields.c.value.trim(), b: body, g: tags, d: new Date().getTime() });
+    save(); form.reset(); active = null; render();
+  });
+
+  render();
+  load();
+  setInterval(function () { if (!document.hidden) load(); }, 30000);
+})();
+</script>
+</body>
+</html>
