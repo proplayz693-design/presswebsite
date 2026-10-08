@@ -1,3 +1,6 @@
 [build]
+  # The UI "Publish directory" setting is "]"; mirror the site there so deploys
+  # succeed regardless of which value wins.
+  command = "mkdir -p ']' && cp index.html ']/'"
   publish = "."
   functions = "netlify/functions"
